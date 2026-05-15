@@ -3,6 +3,7 @@ local TweenService = game:GetService("TweenService")
 local Player = game.Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 -- // 1. LIMPIEZA
 if PlayerGui:FindFirstChild("ZenythHub") then 
@@ -21,7 +22,7 @@ Main.BackgroundColor3 = Color3.fromRGB(30, 20, 45)
 Main.BackgroundTransparency = 0.15
 Main.BorderSizePixel = 0
 Main.ClipsDescendants = true
-Main.Visible = false
+Main.Visible = true
 Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
 
 local Stroke = Instance.new("UIStroke", Main)
@@ -41,36 +42,69 @@ Title.TextXAlignment = Enum.TextXAlignment.Left
 
 -- Contenedor de Toggles
 local Container = Instance.new("Frame", Main)
-Container.Size = UDim2.new(1, -30, 1, -50)
-Container.Position = UDim2.new(0, 15, 0, 40)
+Container.Size = UDim2.new(1, -30, 1, -160)
+Container.Position = UDim2.new(0, 15, 0, 50)
 Container.BackgroundTransparency = 1
 
 local UIListLayout = Instance.new("UIListLayout", Container)
 UIListLayout.Padding = UDim.new(0, 12)
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
--- BOTÓN FLOTANTE (MINIMIZADO) - Arriba a la izquierda
+-- BOTÓN FLOTANTE (MINIMIZADO) - Logo Minimalista arriba a la izquierda
 local MiniBtn = Instance.new("TextButton", sg)
-MiniBtn.Size = UDim2.new(0, 110, 0, 35)
+MiniBtn.Size = UDim2.new(0, 40, 0, 40)
 MiniBtn.Position = UDim2.new(0, 20, 0, 20)
-MiniBtn.BackgroundColor3 = Color3.fromRGB(30, 20, 45)
-MiniBtn.BackgroundTransparency = 0.2
-MiniBtn.Text = " Zenyth V1"
+MiniBtn.BackgroundColor3 = Color3.fromRGB(40, 25, 60)
+MiniBtn.BackgroundTransparency = 0.15
+MiniBtn.Text = "Z"
 MiniBtn.Font = Enum.Font.GothamBold
 MiniBtn.TextColor3 = Color3.fromRGB(200, 150, 255)
-MiniBtn.TextSize = 14
-MiniBtn.TextXAlignment = Enum.TextXAlignment.Center
+MiniBtn.TextSize = 18
 MiniBtn.Visible = false
-Instance.new("UICorner", MiniBtn).CornerRadius = UDim.new(0, 8)
-local MiniStroke = Instance.new("UIStroke", MiniBtn)
-MiniStroke.Thickness = 1.2
-MiniStroke.Color = Color3.fromRGB(120, 90, 180)
+Instance.new("UICorner", MiniBtn).CornerRadius = UDim.new(1, 0)
 
--- // 3. LÓGICA INTERNA
+local MiniStroke = Instance.new("UIStroke", MiniBtn)
+MiniStroke.Thickness = 1.5
+MiniStroke.Color = Color3.fromRGB(140, 100, 210)
+
+-- // LÓGICA PARA MOVER LA INTERFAZ (DRAGGABLE)
+local dragging, dragInput, dragStart, startPos
+local function update(input)
+    local delta = input.Position - dragStart
+    Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+Main.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+Main.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+
+-- // 3. LÓGICA DE LOS SCRIPT
 local AutoE = false
 local Anclado = false
 
--- Fuerza nativa de anclaje
+-- Fuerza nativa de anclaje (Evita caídas y muertes)
 RunService.Heartbeat:Connect(function()
     if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
         local root = Player.Character.HumanoidRootPart
@@ -82,24 +116,33 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Sistema de interacción nativa simulada (Reparación de la E)
-local function interactueWithPrompt(prompt)
-    task.spawn(function()
-        prompt:InputHoldBegin()
-        task.wait(prompt.HoldDuration > 0 and 0.1 or 0)
-        prompt:InputHoldEnd()
-    end)
+-- Ejecución Instantánea de ProximityPrompts (Incluso en movimiento)
+local function interactuarInstantaneo(prompt)
+    if fireproximityprompt then
+        -- Usar la API del exploit para dispararlo directamente en este frame
+        fireproximityprompt(prompt)
+    else
+        -- Fallback manual hiperrápido si el exploit restringe la función básica
+        task.spawn(function()
+            prompt:InputHoldBegin()
+            RunService.RenderStepped:Wait()
+            prompt:InputHoldEnd()
+        end)
+    end
 end
 
-task.spawn(function()
-    while task.wait(0.2) do
-        if AutoE and Player.Character and Player.Character:FindFirstChild("PrimaryPart") then
-            for _, p in pairs(workspace:GetDescendants()) do
-                if p:IsA("ProximityPrompt") and p.Enabled then
-                    local charPos = Player.Character.PrimaryPart.Position
-                    local promptPos = p.Parent:GetPivot().Position
-                    if (charPos - promptPos).Magnitude < 12 then
-                        interactueWithPrompt(p)
+-- Escaneo de alta velocidad por frame para capturar cosas en movimiento
+RunService.RenderStepped:Connect(function()
+    if AutoE and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        local root = Player.Character.HumanoidRootPart
+        for _, p in pairs(workspace:GetDescendants()) do
+            if p:IsA("ProximityPrompt") and p.Enabled then
+                local success, objPos = pcall(function() return p.Parent:GetPivot().Position end)
+                if success and objPos then
+                    local distancia = (root.Position - objPos).Magnitude
+                    -- Si estás a menos de 15 studs del objeto moviéndose, lo agarra en el acto
+                    if distancia <= 15 then
+                        interactuarInstantaneo(p)
                     end
                 end
             end
@@ -152,11 +195,11 @@ local function createToggle(name, callback)
     end)
 end
 
-createToggle("Autofarm E (Bypass Pro)", function(state)
+createToggle("Auto Agarrar Objetos (E)", function(state)
     AutoE = state
 end)
 
-createToggle("Modo Anclaje Segura", function(state)
+createToggle("Modo Anclaje Seguro", function(state)
     Anclado = state
 end)
 
@@ -170,8 +213,6 @@ Close.TextColor3 = Color3.fromRGB(200, 150, 255)
 Close.Font = Enum.Font.GothamBold
 Close.TextSize = 22
 Close.MouseButton1Click:Connect(function() 
-    TweenService:Create(Main, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 320, 0, 0)}):Play()
-    task.wait(0.2)
     sg:Destroy() 
 end)
 
@@ -185,10 +226,8 @@ Minimize.TextColor3 = Color3.fromRGB(200, 150, 255)
 Minimize.Font = Enum.Font.GothamBold
 Minimize.TextSize = 22
 
--- Lógica de minimizar / maximizar
+-- Lógica de Minimizar / Maximizar Estable
 Minimize.MouseButton1Click:Connect(function()
-    TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.QuartOut), {Size = UDim2.new(0, 320, 0, 0)}):Play()
-    task.wait(0.2)
     Main.Visible = false
     MiniBtn.Visible = true
 end)
@@ -196,10 +235,9 @@ end)
 MiniBtn.MouseButton1Click:Connect(function()
     MiniBtn.Visible = false
     Main.Visible = true
-    TweenService:Create(Main, TweenInfo.new(0.4, Enum.EasingStyle.Back), {Size = UDim2.new(0, 320, 0, 250)}):Play()
 end)
 
--- // 5. APERTURA INICIAL
-Main.Visible = true
-Main.Size = UDim2.new(0, 320, 0, 0)
-TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Back), {Size = UDim2.new(0, 320, 0, 250)}):Play()
+-- // 5. ANIMACIÓN DE ENTRADA INICIAL
+local OriginalPosition = Main.Position
+Main.Position = UDim2.new(OriginalPosition.X.Scale, OriginalPosition.X.Offset, 0, -300)
+TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Back), {Position = OriginalPosition}):Play()
