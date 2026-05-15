@@ -14,13 +14,14 @@ local sg = Instance.new("ScreenGui", PlayerGui)
 sg.Name = "ZenythHub"
 sg.ResetOnSpawn = false
 
--- // 2. INTERFAZ PRINCIPAL
+-- // 2. INTERFAZ PRINCIPAL (CORREGIDA CON PROPIEDAD ACTIVE)
 local Main = Instance.new("Frame", sg)
-Main.Size = UDim2.new(0, 320, 0, 250)
-Main.Position = UDim2.new(0.5, -160, 0.5, -125)
+Main.Size = UDim2.new(0, 320, 0, 220)
+Main.Position = UDim2.new(0.5, -160, 0.5, -110)
 Main.BackgroundColor3 = Color3.fromRGB(30, 20, 45)
 Main.BackgroundTransparency = 0.15
 Main.BorderSizePixel = 0
+Main.Active = true -- // CLAVE: Permite interactuar y arrastrar en móviles/PC
 Main.ClipsDescendants = true
 Main.Visible = true
 Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
@@ -42,24 +43,25 @@ Title.TextXAlignment = Enum.TextXAlignment.Left
 
 -- Contenedor de Toggles
 local Container = Instance.new("Frame", Main)
-Container.Size = UDim2.new(1, -30, 1, -160)
-Container.Position = UDim2.new(0, 15, 0, 50)
+Container.Size = UDim2.new(1, -30, 1, -60)
+Container.Position = UDim2.new(0, 15, 0, 45)
 Container.BackgroundTransparency = 1
 
 local UIListLayout = Instance.new("UIListLayout", Container)
 UIListLayout.Padding = UDim.new(0, 12)
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
--- BOTÓN FLOTANTE (MINIMIZADO) - Logo Minimalista arriba a la izquierda
+-- LOGO DE MINIMIZADO (Botón circular morado arriba a la izquierda)
 local MiniBtn = Instance.new("TextButton", sg)
-MiniBtn.Size = UDim2.new(0, 40, 0, 40)
-MiniBtn.Position = UDim2.new(0, 20, 0, 20)
-MiniBtn.BackgroundColor3 = Color3.fromRGB(40, 25, 60)
+MiniBtn.Size = UDim2.new(0, 45, 0, 45)
+MiniBtn.Position = UDim2.new(0, 25, 0, 65) -- Ajustado debajo de los botones nativos de Roblox
+MiniBtn.BackgroundColor3 = Color3.fromRGB(45, 25, 65)
 MiniBtn.BackgroundTransparency = 0.15
 MiniBtn.Text = "Z"
 MiniBtn.Font = Enum.Font.GothamBold
 MiniBtn.TextColor3 = Color3.fromRGB(200, 150, 255)
-MiniBtn.TextSize = 18
+MiniBtn.TextSize = 20
+MiniBtn.Active = true
 MiniBtn.Visible = false
 Instance.new("UICorner", MiniBtn).CornerRadius = UDim.new(1, 0)
 
@@ -67,7 +69,7 @@ local MiniStroke = Instance.new("UIStroke", MiniBtn)
 MiniStroke.Thickness = 1.5
 MiniStroke.Color = Color3.fromRGB(140, 100, 210)
 
--- // LÓGICA PARA MOVER LA INTERFAZ (DRAGGABLE)
+-- // SISTEMA DE ARRASTRE FLUIDO (MÓVIL Y PC)
 local dragging, dragInput, dragStart, startPos
 local function update(input)
     local delta = input.Position - dragStart
@@ -100,11 +102,11 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- // 3. LÓGICA DE LOS SCRIPT
+-- // 3. LÓGICA DE JUEGO OPTIMIZADA
 local AutoE = false
 local Anclado = false
 
--- Fuerza nativa de anclaje (Evita caídas y muertes)
+-- Anclaje por propiedad nativa
 RunService.Heartbeat:Connect(function()
     if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
         local root = Player.Character.HumanoidRootPart
@@ -116,33 +118,38 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Ejecución Instantánea de ProximityPrompts (Incluso en movimiento)
-local function interactuarInstantaneo(prompt)
-    if fireproximityprompt then
-        -- Usar la API del exploit para dispararlo directamente en este frame
-        fireproximityprompt(prompt)
-    else
-        -- Fallback manual hiperrápido si el exploit restringe la función básica
-        task.spawn(function()
+-- Multi-Bypass para objetos veloces/en movimiento
+local function forzarRecoleccion(prompt)
+    task.spawn(function()
+        if fireproximityprompt then
+            -- Método primario por exploit externo
+            fireproximityprompt(prompt)
+        else
+            -- Método secundario por simulación forzada de frames
             prompt:InputHoldBegin()
-            RunService.RenderStepped:Wait()
+            task.wait(0.05)
             prompt:InputHoldEnd()
-        end)
-    end
+        end
+    end)
 end
 
--- Escaneo de alta velocidad por frame para capturar cosas en movimiento
-RunService.RenderStepped:Connect(function()
-    if AutoE and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-        local root = Player.Character.HumanoidRootPart
-        for _, p in pairs(workspace:GetDescendants()) do
-            if p:IsA("ProximityPrompt") and p.Enabled then
-                local success, objPos = pcall(function() return p.Parent:GetPivot().Position end)
-                if success and objPos then
-                    local distancia = (root.Position - objPos).Magnitude
-                    -- Si estás a menos de 15 studs del objeto moviéndose, lo agarra en el acto
-                    if distancia <= 15 then
-                        interactuarInstantaneo(p)
+-- Escaneo en bucle ultra veloz (0.05s) enfocado en la parte física exacta del prompt
+task.spawn(function()
+    while task.wait(0.05) do
+        if AutoE and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+            local root = Player.Character.HumanoidRootPart
+            for _, p in pairs(workspace:GetDescendants()) do
+                if p:IsA("ProximityPrompt") and p.Enabled then
+                    -- Intentar obtener la posición real de la parte que aloja la E
+                    local parentPart = p.Parent
+                    if parentPart and (parentPart:IsA("BasePart") or parentPart:IsA("Model")) then
+                        local pPos = parentPart:IsA("BasePart") and parentPart.Position or parentPart:GetPivot().Position
+                        local distancia = (root.Position - pPos).Magnitude
+                        
+                        -- Si estás en rango del ítem de la cinta de correr, lo agarra
+                        if distancia <= 18 then
+                            forzarRecoleccion(p)
+                        end
                     end
                 end
             end
@@ -150,7 +157,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- // 4. COMPONENTES DE LA INTERFAZ (TOGGLES)
+-- // 4. CREACIÓN DE TOGGLES
 local function createToggle(name, callback)
     local toggleState = false
 
@@ -158,6 +165,7 @@ local function createToggle(name, callback)
     BtnFrame.Size = UDim2.new(1, 0, 0, 45)
     BtnFrame.BackgroundColor3 = Color3.fromRGB(50, 35, 75)
     BtnFrame.Text = ""
+    BtnFrame.Active = true
     BtnFrame.AutoButtonColor = false
     Instance.new("UICorner", BtnFrame).CornerRadius = UDim.new(0, 8)
 
@@ -212,6 +220,7 @@ Close.BackgroundTransparency = 1
 Close.TextColor3 = Color3.fromRGB(200, 150, 255)
 Close.Font = Enum.Font.GothamBold
 Close.TextSize = 22
+Close.Active = true
 Close.MouseButton1Click:Connect(function() 
     sg:Destroy() 
 end)
@@ -225,8 +234,9 @@ Minimize.BackgroundTransparency = 1
 Minimize.TextColor3 = Color3.fromRGB(200, 150, 255)
 Minimize.Font = Enum.Font.GothamBold
 Minimize.TextSize = 22
+Minimize.Active = true
 
--- Lógica de Minimizar / Maximizar Estable
+-- Lógica de Intercambio de Ventana (Estable)
 Minimize.MouseButton1Click:Connect(function()
     Main.Visible = false
     MiniBtn.Visible = true
@@ -237,7 +247,7 @@ MiniBtn.MouseButton1Click:Connect(function()
     Main.Visible = true
 end)
 
--- // 5. ANIMACIÓN DE ENTRADA INICIAL
+-- // 5. ANIMACIÓN AL GENERAR
 local OriginalPosition = Main.Position
 Main.Position = UDim2.new(OriginalPosition.X.Scale, OriginalPosition.X.Offset, 0, -300)
 TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Back), {Position = OriginalPosition}):Play()
